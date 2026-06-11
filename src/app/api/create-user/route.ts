@@ -1,22 +1,17 @@
 import { NextResponse } from 'next/server';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
-    // Dynamically import to avoid top-level ESM/Webpack crashes on Netlify
-    const { getApps, initializeApp, cert } = await import('firebase-admin/app');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getFirestore } = await import('firebase-admin/firestore');
-
-    // Initialize admin if not already initialized
-    if (getApps().length === 0) {
+    if (admin.apps.length === 0) {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
       }
       pk = pk.replace(/\\n/g, '\n');
 
-      initializeApp({
-        credential: cert({
+      admin.initializeApp({
+        credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID as string,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL as string,
           privateKey: pk,
@@ -31,14 +26,14 @@ export async function POST(req: Request) {
     }
 
     // 1. Create user in Firebase Auth using Admin SDK
-    const userRecord = await getAuth().createUser({
+    const userRecord = await admin.auth().createUser({
       email,
       password,
       displayName,
     });
 
     // 2. Create user's Firestore document
-    await getFirestore().collection('users').doc(userRecord.uid).set({
+    await admin.firestore().collection('users').doc(userRecord.uid).set({
       uid: userRecord.uid,
       email: userRecord.email,
       displayName,
