@@ -4,7 +4,9 @@ import * as admin from 'firebase-admin';
 export async function POST(req: Request) {
   try {
     // Initialize admin if not already initialized
-    if (admin.apps.length === 0) {
+    try {
+      admin.app();
+    } catch {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
