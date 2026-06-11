@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
   try {
     // Initialize admin if not already initialized
-    try {
-      admin.app();
-    } catch {
+    if (getApps().length === 0) {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
       }
       pk = pk.replace(/\\n/g, '\n');
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
+      initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID as string,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL as string,
           privateKey: pk,
@@ -29,14 +29,14 @@ export async function POST(req: Request) {
     }
 
     // 1. Create user in Firebase Auth using Admin SDK
-    const userRecord = await admin.auth().createUser({
+    const userRecord = await getAuth().createUser({
       email,
       password,
       displayName,
     });
 
     // 2. Create user's Firestore document
-    await admin.firestore().collection('users').doc(userRecord.uid).set({
+    await getFirestore().collection('users').doc(userRecord.uid).set({
       uid: userRecord.uid,
       email: userRecord.email,
       displayName,

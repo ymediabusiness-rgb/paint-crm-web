@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import * as admin from 'firebase-admin';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 export async function POST(req: Request) {
   try {
-    try {
-      admin.app();
-    } catch {
+    if (getApps().length === 0) {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
       }
       pk = pk.replace(/\\n/g, '\n');
 
-      admin.initializeApp({
-        credential: admin.credential.cert({
+      initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID as string,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL as string,
           privateKey: pk,
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const { uid, email, password, displayName, role, territory } = await req.json();
+    const { uid, password, displayName, territory } = await req.json();
 
     if (!uid) {
       return NextResponse.json({ error: 'UID is required' }, { status: 400 });
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     if (displayName) authUpdatePayload.displayName = displayName;
     
     if (Object.keys(authUpdatePayload).length > 0) {
-      await admin.auth().updateUser(uid, authUpdatePayload);
+      await getAuth().updateUser(uid, authUpdatePayload);
     }
 
     // 2. Update user's Firestore document (without storing the password!)
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     if (territory) dbUpdatePayload.territory = territory;
 
     if (Object.keys(dbUpdatePayload).length > 0) {
-      await admin.firestore().collection('users').doc(uid).update(dbUpdatePayload);
+      await getFirestore().collection('users').doc(uid).update(dbUpdatePayload);
     }
 
     return NextResponse.json({ success: true, message: 'User updated successfully' }, { status: 200 });
