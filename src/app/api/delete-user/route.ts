@@ -1,0 +1,37 @@
+import { NextResponse } from 'next/server';
+import { initAdmin } from '@/lib/firebaseAdmin';
+import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
+
+export async function POST(req: Request) {
+  try {
+    initAdmin();
+    const adminAuth = getAuth();
+    const adminDb = getFirestore();
+    const body = await req.json();
+    const { uid } = body;
+
+    if (!uid) {
+      return NextResponse.json({ error: 'UID is required' }, { status: 400 });
+    }
+
+    try {
+      await adminAuth.deleteUser(uid);
+    } catch (e: any) {
+      if (e.code !== 'auth/user-not-found') {
+        throw e;
+      }
+    }
+
+    await adminDb.collection('users').doc(uid).delete();
+
+    return NextResponse.json({ success: true, message: 'User deleted successfully' }, { status: 200 });
+
+  } catch (error: any) {
+    console.error("Delete user error:", error);
+    return NextResponse.json(
+      { error: 'Failed to delete user', details: error.message }, 
+      { status: 500 }
+    );
+  }
+}
