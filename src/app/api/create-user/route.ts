@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server';
-import { initAdmin } from '@/lib/firebaseAdmin';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
-    initAdmin();
-    const adminAuth = getAuth();
-    const adminDb = getFirestore();
+    // Initialize admin if not already initialized
+    if (admin.apps.length === 0) {
+      let pk = process.env.FIREBASE_PRIVATE_KEY || '';
+      if (pk.startsWith('"') && pk.endsWith('"')) {
+        pk = pk.slice(1, -1);
+      }
+      pk = pk.replace(/\\n/g, '\n');
+
+      admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          privateKey: pk,
+        }),
+      });
+    }
+
     const { email, password, displayName, role, territory } = await req.json();
 
     if (!email || !password || !displayName || !role) {
@@ -15,14 +27,14 @@ export async function POST(req: Request) {
     }
 
     // 1. Create user in Firebase Auth using Admin SDK
-    const userRecord = await adminAuth.createUser({
+    const userRecord = await admin.auth().createUser({
       email,
       password,
       displayName,
     });
 
-    // 2. Create user's Firestore document (without storing the password!)
-    await adminDb.collection('users').doc(userRecord.uid).set({
+    // 2. Create user's Firestore document
+    await admin.firestore().collection('users').doc(userRecord.uid).set({
       uid: userRecord.uid,
       email: userRecord.email,
       displayName,
