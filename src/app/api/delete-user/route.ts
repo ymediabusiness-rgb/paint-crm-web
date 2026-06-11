@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
-    const { getApps, initializeApp, cert } = await import('firebase-admin/app');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getFirestore } = await import('firebase-admin/firestore');
-
-    if (getApps().length === 0) {
+    if (admin.apps.length === 0) {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
       }
       pk = pk.replace(/\\n/g, '\n');
 
-      initializeApp({
-        credential: cert({
+      admin.initializeApp({
+        credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID as string,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL as string,
           privateKey: pk,
@@ -30,14 +27,14 @@ export async function POST(req: Request) {
     }
 
     try {
-      await getAuth().deleteUser(uid);
+      await admin.auth().deleteUser(uid);
     } catch (e: any) {
       if (e.code !== 'auth/user-not-found') {
         throw e;
       }
     }
 
-    await getFirestore().collection('users').doc(uid).delete();
+    await admin.firestore().collection('users').doc(uid).delete();
 
     return NextResponse.json({ success: true, message: 'User deleted successfully' }, { status: 200 });
 

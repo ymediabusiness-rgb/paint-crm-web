@@ -1,20 +1,17 @@
 import { NextResponse } from 'next/server';
+import * as admin from 'firebase-admin';
 
 export async function POST(req: Request) {
   try {
-    const { getApps, initializeApp, cert } = await import('firebase-admin/app');
-    const { getAuth } = await import('firebase-admin/auth');
-    const { getFirestore } = await import('firebase-admin/firestore');
-
-    if (getApps().length === 0) {
+    if (admin.apps.length === 0) {
       let pk = process.env.FIREBASE_PRIVATE_KEY || '';
       if (pk.startsWith('"') && pk.endsWith('"')) {
         pk = pk.slice(1, -1);
       }
       pk = pk.replace(/\\n/g, '\n');
 
-      initializeApp({
-        credential: cert({
+      admin.initializeApp({
+        credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID as string,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL as string,
           privateKey: pk,
@@ -34,7 +31,7 @@ export async function POST(req: Request) {
     if (displayName) authUpdatePayload.displayName = displayName;
     
     if (Object.keys(authUpdatePayload).length > 0) {
-      await getAuth().updateUser(uid, authUpdatePayload);
+      await admin.auth().updateUser(uid, authUpdatePayload);
     }
 
     // 2. Update user's Firestore document (without storing the password!)
@@ -43,7 +40,7 @@ export async function POST(req: Request) {
     if (territory) dbUpdatePayload.territory = territory;
 
     if (Object.keys(dbUpdatePayload).length > 0) {
-      await getFirestore().collection('users').doc(uid).update(dbUpdatePayload);
+      await admin.firestore().collection('users').doc(uid).update(dbUpdatePayload);
     }
 
     return NextResponse.json({ success: true, message: 'User updated successfully' }, { status: 200 });
